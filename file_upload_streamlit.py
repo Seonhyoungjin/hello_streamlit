@@ -1,4 +1,7 @@
 import streamlit as st
+from ga import inject_ga
+
+inject_ga()
 import pandas as pd
 
 data = st.file_uploader("upload file", type={"csv", "txt"})

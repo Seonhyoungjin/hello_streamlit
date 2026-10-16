@@ -1,5 +1,8 @@
 import pandas as pd
 import streamlit as st
+from ga import inject_ga
+
+inject_ga()
 
 data = st.file_uploader("upload file", type={"csv", "txt"})
 if data is not None:
