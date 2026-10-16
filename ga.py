@@ -34,16 +34,24 @@ def inject_ga() -> None:
 
     components.html(
         f"""
-<script async src="https://www.googletagmanager.com/gtag/js?id={MEASUREMENT_ID}"></script>
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){{dataLayer.push(arguments);}}
-  gtag('js', new Date());
-  gtag('config', {json.dumps(MEASUREMENT_ID)}, {{
+(function () {{
+  var w = window.parent, d = w.document;
+  if (w.__gaInjected) return;
+  w.__gaInjected = true;
+  var s = d.createElement('script');
+  s.async = true;
+  s.src = 'https://www.googletagmanager.com/gtag/js?id={MEASUREMENT_ID}';
+  d.head.appendChild(s);
+  w.dataLayer = w.dataLayer || [];
+  w.gtag = function () {{ w.dataLayer.push(arguments); }};
+  w.gtag('js', new Date());
+  w.gtag('config', {json.dumps(MEASUREMENT_ID)}, {{
     page_location: {json.dumps(page_location)},
     page_title: 'hello_streamlit'
   }});
-  gtag('event', 'landing_view', {json.dumps(params)});
+  w.gtag('event', 'landing_view', {json.dumps(params)});
+}})();
 </script>
 """,
         height=0,
