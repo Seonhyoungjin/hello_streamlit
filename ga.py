@@ -5,6 +5,7 @@ GA 코드를 넣고, 주소에 붙은 UTM 꼬리표를 GA에 함께 넘긴다.
 측정 ID(G-로 시작)는 공개돼도 괜찮은 값이다.
 """
 import json
+import re
 from urllib.parse import urlencode
 
 import streamlit as st
@@ -20,7 +21,10 @@ def _utm_from_url() -> dict:
     for key in UTM_KEYS:
         value = st.query_params.get(key)
         if value:
-            out[key] = str(value)[:100]
+            # UTM 규칙(영문·숫자·. _ -)만 남겨서, 주소에 이상한 코드를 넣어도 실행되지 않게 한다
+            safe = re.sub(r"[^a-z0-9._-]", "", str(value).lower())[:100]
+            if safe:
+                out[key] = safe
     return out
 
 
@@ -30,8 +34,17 @@ def inject_ga() -> None:
     utm = _utm_from_url()
     query = urlencode(utm)
     page_location = LANDING_URL + (("?" + query) if query else "")
-    params = {k.replace("utm_", "campaign_"): v for k, v in utm.items()}
+    names = {"utm_source": "campaign_source", "utm_medium": "campaign_medium", "utm_campaign": "campaign_name", "utm_content": "campaign_content", "utm_term": "campaign_term"}
+    params = {names[k]: v for k, v in utm.items()}
 
+    inline = (
+        "window.dataLayer=window.dataLayer||[];"
+        "function gtag(){dataLayer.push(arguments);}"
+        "gtag('js',new Date());"
+        f"gtag('config',{json.dumps(MEASUREMENT_ID)},"
+        f"{{page_location:{json.dumps(page_location)},page_title:'hello_streamlit'}});"
+        f"gtag('event','landing_view',{json.dumps(params)});"
+    )
     components.html(
         f"""
 <script>
@@ -39,18 +52,13 @@ def inject_ga() -> None:
   var w = window.parent, d = w.document;
   if (w.__gaInjected) return;
   w.__gaInjected = true;
-  var s = d.createElement('script');
-  s.async = true;
-  s.src = 'https://www.googletagmanager.com/gtag/js?id={MEASUREMENT_ID}';
-  d.head.appendChild(s);
-  w.dataLayer = w.dataLayer || [];
-  w.gtag = function () {{ w.dataLayer.push(arguments); }};
-  w.gtag('js', new Date());
-  w.gtag('config', {json.dumps(MEASUREMENT_ID)}, {{
-    page_location: {json.dumps(page_location)},
-    page_title: 'hello_streamlit'
-  }});
-  w.gtag('event', 'landing_view', {json.dumps(params)});
+  var lib = d.createElement('script');
+  lib.async = true;
+  lib.src = 'https://www.googletagmanager.com/gtag/js?id={MEASUREMENT_ID}';
+  d.head.appendChild(lib);
+  var init = d.createElement('script');
+  init.text = {json.dumps(inline)};
+  d.head.appendChild(init);
 }})();
 </script>
 """,
